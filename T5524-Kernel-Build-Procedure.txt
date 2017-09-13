@@ -1,0 +1,18 @@
+#Follow below steps for compiling the T5524 Shared Kernel code
+1.Clone The Shared Kernal code to your machine with below command
+  git clone https://github.com/smartronscm/T5524-Kernel-Sourcecode.git
+  cd T5524-Kernel-Sourcecode
+2.Clone the prebuild toolchain from here.
+  git clone https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9
+3.Set the path of prebuild toolchain.
+4.cd T5524-Kernel-Sourcecode #And follow below steps.
+  #Create a directory out/obj/KERNEL_OBJ/
+  mkdir -p out/obj/KERNEL_OBJ
+  #Create a directory out/system/lib/modules
+  mkdir -p out/system/lib/modules
+  make -C kernel O=../out/obj/KERNEL_OBJ ARCH=arm64 CROSS_COMPILE=aarch64-linux-android- KCFLAGS=-mno-android msm-perf_defconfig
+  #Remove out/obj/KERNEL_OBJ/arch/arm64/boot/dts
+  rm -rf out/obj/KERNEL_OBJ/arch/arm64/boot/dts
+  make -C kernel O=../out/obj/KERNEL_OBJ ARCH=arm64 CROSS_COMPILE=aarch64-linux-android- KCFLAGS=-mno-android
+  make -C kernel O=../out/obj/KERNEL_OBJ ARCH=arm64 CROSS_COMPILE=aarch64-linux-android- KCFLAGS=-mno-android modules
+  make -C kernel O=../out/obj/KERNEL_OBJ INSTALL_MOD_PATH=../../system INSTALL_MOD_STRIP=1 ARCH=arm64 CROSS_COMPILE=aarch64-linux-android- modules_install
