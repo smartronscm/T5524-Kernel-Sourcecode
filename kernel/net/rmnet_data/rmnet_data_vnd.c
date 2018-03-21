@@ -455,7 +455,7 @@ static int rmnet_vnd_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 		break;
 
 	default:
-		LOGH("Unkown IOCTL 0x%08X", cmd);
+		LOGM("Unknown IOCTL 0x%08X", cmd);
 		rc = -EINVAL;
 	}
 
@@ -597,11 +597,6 @@ int rmnet_vnd_create_dev(int id, struct net_device **new_device,
 			NETIF_F_IPV6_UDP_CSUM;
 		/* Configuring GRO on rmnet_data interfaces */
 		dev->hw_features |= NETIF_F_GRO;
-		/* Configuring Scatter-Gather on rmnet_data interfaces */
-		dev->hw_features |= NETIF_F_SG;
-		/* Configuring GSO on rmnet_data interfaces */
-		dev->hw_features |= NETIF_F_GSO;
-		dev->hw_features |= NETIF_F_GSO_UDP_TUNNEL;
 	}
 
 	rc = register_netdevice(dev);

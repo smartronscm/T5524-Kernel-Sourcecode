@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -38,64 +38,6 @@
 	eeprom0: qcom,eeprom@0{
 		cell-index = <0>;
 		reg = <0x00>;
-		qcom,eeprom-name = "ofilm_gt24c32a";
-		compatible = "qcom,eeprom";
-		qcom,slave-addr = <0xa0>;
-		qcom,cci-master = <0>;
-		qcom,num-blocks = <1>;
-
-		qcom,page0 = <0 0x0 1 0x01 1 1>;
-		qcom,poll0 = <0 0x0 1 0 1 1>;
-		qcom,saddr0 = <0xa0>;
-		qcom,mem0 = <0xd9d 0x0000 2 0 1 0>;
-
-		cam_vdig-supply = <&pm8950_l23>;
-		cam_vana-supply = <&pm8950_l22>;
-		cam_vio-supply = <&pm8950_l6>;
-		cam_vaf-supply = <&pm8950_l17>;
-		qcom,cam-vreg-name = "cam_vdig", "cam_vio", "cam_vana",
-							"cam_vaf";
-		qcom,cam-vreg-min-voltage = <1200000 0 2800000 2850000>;
-		qcom,cam-vreg-max-voltage = <1200000 0 2800000 2850000>;
-		qcom,cam-vreg-op-mode = <200000 0 80000 100000>;
-		pinctrl-names = "cam_default", "cam_suspend";
-		pinctrl-0 = <&cam_sensor_mclk0_default
-				&cam_sensor_rear_default>;
-		pinctrl-1 = <&cam_sensor_mclk0_sleep &cam_sensor_rear_sleep>;
-		gpios = <&msm_gpio 26 0>,
-			<&msm_gpio 129 0>,
-			<&msm_gpio 128 0>,
-			<&msm_gpio 126 0>,
-			<&msm_gpio 123 0>;
-		qcom,gpio-reset = <1>;
-		qcom,gpio-vana = <2>;
-		qcom,gpio-vdig = <3>;
-		qcom,gpio-vio = <4>;
-		qcom,gpio-req-tbl-num = <0 1 2 3 4>;
-		qcom,gpio-req-tbl-flags = <1 0 0 0 0>;
-		qcom,gpio-req-tbl-label = "MCAM1_MCLK0",
-			"MCAM1_RESET",
-			"MCAM1_VANA",
-			"MCAM1_VDIG",
-			"MCAM1_VIO";
-
-		qcom,cam-power-seq-type = "sensor_gpio",
-			"sensor_gpio", "sensor_gpio",
-			"sensor_gpio","sensor_clk";
-		qcom,cam-power-seq-val = "sensor_gpio_vdig",
-			"sensor_gpio_vana", "sensor_gpio_vio",
-			"sensor_gpio_reset","sensor_cam_mclk";
-		qcom,cam-power-seq-cfg-val = <1 1 1 1 5 24000000>;
-		qcom,cam-power-seq-delay = <2 2 2 2 2 5>;
-		status = "ok";
-		clocks = <&clock_gcc clk_mclk0_clk_src>,
-				<&clock_gcc clk_gcc_camss_mclk0_clk>;
-		clock-names = "cam_src_clk", "cam_clk";
-	};
-
-	eeprom1: qcom,eeprom@1{
-		cell-index = <1>;
-		reg = <0x01>;
 		qcom,eeprom-name = "sunny_p5s13b";
 		compatible = "qcom,eeprom";
 		qcom,slave-addr = <0x20>;
@@ -160,11 +102,12 @@
 		clocks = <&clock_gcc clk_mclk2_clk_src>,
 			<&clock_gcc clk_gcc_camss_mclk2_clk>;
 		clock-names = "cam_src_clk", "cam_clk";
+		qcom,clock-rates = <24000000 0>;
 	};
 
-	eeprom2: qcom,eeprom@2{
-		cell-index = <2>;
-		reg = <0x03>;
+	eeprom1: qcom,eeprom@1{
+		cell-index = <1>;
+		reg = <0x01>;
 		qcom,eeprom-name = "yuanda_gt24c64a";
 		compatible = "qcom,eeprom";
 		qcom,slave-addr = <0xa0>;
@@ -218,6 +161,7 @@
 		clocks = <&clock_gcc clk_mclk0_clk_src>,
 				<&clock_gcc clk_gcc_camss_mclk0_clk>;
 		clock-names = "cam_src_clk", "cam_clk";
+		qcom,clock-rates = <24000000 0>;
 	};
 	qcom,camera@0 {
 		cell-index = <0>;
@@ -226,7 +170,7 @@
 		qcom,csiphy-sd-index = <0>;
 		qcom,csid-sd-index = <0>;
 		qcom,mount-angle = <90>;
-		qcom,eeprom-src = <&eeprom0 &eeprom2 >;
+		qcom,eeprom-src = < &eeprom1 >;
 		qcom,actuator-src = <&actuator0>;
 		qcom,led-flash-src = <&led_flash0>;
 		cam_vdig-supply = <&pm8950_l23>;
@@ -265,6 +209,7 @@
 		clocks = <&clock_gcc clk_mclk0_clk_src>,
 				<&clock_gcc clk_gcc_camss_mclk0_clk>;
 		clock-names = "cam_src_clk", "cam_clk";
+		qcom,clock-rates = <24000000 0>;
 	};
 
 
@@ -275,7 +220,7 @@
 		qcom,csiphy-sd-index = <1>;
 		qcom,csid-sd-index = <1>;
 		qcom,mount-angle = <270>;
-		qcom,eeprom-src = <&eeprom1>;
+		qcom,eeprom-src = <&eeprom0>;
 		cam_vdig-supply = <&pm8950_l23>;
 		cam_vana-supply = <&pm8950_l22>;
 		cam_vio-supply = <&pm8950_l6>;
@@ -313,6 +258,7 @@
 		clocks = <&clock_gcc clk_mclk2_clk_src>,
 			<&clock_gcc clk_gcc_camss_mclk2_clk>;
 		clock-names = "cam_src_clk", "cam_clk";
+		qcom,clock-rates = <24000000 0>;
 	};
 
 };

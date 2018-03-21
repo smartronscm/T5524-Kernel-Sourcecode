@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -36,6 +36,7 @@ struct pil_priv;
  * @unmap_fw_mem: Custom function used to undo mapping by map_fw_mem.
  * This defaults to iounmap if not specified.
  * @shutdown_fail: Set if PIL op for shutting down subsystem fails.
+ * @clear_fw_region: Clear fw region on failure in loading.
  */
 struct pil_desc {
 	const char *name;
@@ -53,6 +54,7 @@ struct pil_desc {
 	void (*unmap_fw_mem)(void *virt, size_t size, void *data);
 	void *map_data;
 	bool shutdown_fail;
+	bool clear_fw_region;
 };
 
 /**
@@ -100,6 +102,7 @@ extern void pil_free_memory(struct pil_desc *desc);
 extern void pil_desc_release(struct pil_desc *desc);
 extern phys_addr_t pil_get_entry_addr(struct pil_desc *desc);
 extern int pil_do_ramdump(struct pil_desc *desc, void *ramdump_dev);
+extern bool is_timeout_disabled(void);
 #else
 static inline int pil_desc_init(struct pil_desc *desc) { return 0; }
 static inline int pil_boot(struct pil_desc *desc) { return 0; }
@@ -114,6 +117,7 @@ static inline int pil_do_ramdump(struct pil_desc *desc, void *ramdump_dev)
 {
 	return 0;
 }
+extern bool is_timeout_disabled(void) { return false; }
 #endif
 
 #endif

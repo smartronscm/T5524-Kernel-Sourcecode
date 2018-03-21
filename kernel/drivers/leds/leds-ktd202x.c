@@ -410,7 +410,7 @@ static int ktd202x_probe(struct i2c_client *client, const struct i2c_device_id *
 
     mutex_init(&chip->i2c_lock);
     i2c_set_clientdata(client, chip);
-	
+
     ret = i2c_smbus_write_byte_data(chip->client, LED_ENABLE_CONTROL, 0x00);// initialization LED off
     if (ret) {
         msleep(100);

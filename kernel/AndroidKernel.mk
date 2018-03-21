@@ -92,11 +92,13 @@ if [ "$$mdpath" != "" ];then\
 mpath=`dirname $$mdpath`; rm -rf $$mpath;\
 fi
 endef
+
 KERNEL_MODULE_KEYS := build/target/product/security/kernel_module_keys
 
 $(KERNEL_OUT):
 	mkdir -p $(KERNEL_OUT)
 	cp -f $(KERNEL_MODULE_KEYS)/* $(KERNEL_OUT)
+
 $(KERNEL_CONFIG): $(KERNEL_OUT)
 	$(MAKE) -C kernel O=../$(KERNEL_OUT) ARCH=$(KERNEL_ARCH) CROSS_COMPILE=$(KERNEL_CROSS_COMPILE) $(KERNEL_DEFCONFIG)
 	$(hide) if [ ! -z "$(KERNEL_CONFIG_OVERRIDE)" ]; then \

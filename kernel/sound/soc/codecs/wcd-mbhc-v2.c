@@ -41,9 +41,9 @@
 				  SND_JACK_BTN_4 | SND_JACK_BTN_5 | \
 				  SND_JACK_BTN_6 | SND_JACK_BTN_7)
 #define OCP_ATTEMPT 1
-#define HS_DETECT_PLUG_TIME_MS (3 * 1000)
-#define SPECIAL_HS_DETECT_TIME_MS (2 * 1000)
-#define MBHC_BUTTON_PRESS_THRESHOLD_MIN 250
+#define HS_DETECT_PLUG_TIME_MS (800)
+#define SPECIAL_HS_DETECT_TIME_MS (500)
+#define MBHC_BUTTON_PRESS_THRESHOLD_MIN 1250
 #define GND_MIC_SWAP_THRESHOLD 4
 #define WCD_FAKE_REMOVAL_MIN_PERIOD_MS 100
 #define HS_VREF_MIN_VAL 1400
@@ -861,6 +861,8 @@ exit:
 /* To determine if cross connection occured */
 static int wcd_check_cross_conn(struct wcd_mbhc *mbhc)
 {
+
+#if 0
 	u16 swap_res;
 	enum wcd_mbhc_plug_type plug_type = MBHC_PLUG_TYPE_NONE;
 	s16 reg1;
@@ -870,11 +872,6 @@ static int wcd_check_cross_conn(struct wcd_mbhc *mbhc)
 		pr_debug("%s: Switch level is low\n", __func__);
 		return -EINVAL;
 	}
-
-	/* If PA is enabled, dont check for cross-connection */
-	if (mbhc->mbhc_cb->hph_pa_on_status)
-		if (mbhc->mbhc_cb->hph_pa_on_status(mbhc->codec))
-			return false;
 
 	WCD_MBHC_REG_READ(WCD_MBHC_ELECT_SCHMT_ISRC, reg1);
 	/*
@@ -910,6 +907,11 @@ static int wcd_check_cross_conn(struct wcd_mbhc *mbhc)
 	pr_debug("%s: leave, plug type: %d\n", __func__,  plug_type);
 
 	return (plug_type == MBHC_PLUG_TYPE_GND_MIC_SWAP) ? true : false;
+
+
+#endif
+	return false;
+
 }
 
 static bool wcd_is_special_headset(struct wcd_mbhc *mbhc)
@@ -1128,8 +1130,6 @@ static void wcd_correct_swch_plug(struct work_struct *work)
 	bool micbias1 = false;
 	int ret = 0;
 	int rc, spl_hs_count = 0;
-	int cross_conn;
-	int try = 0;
 
 	pr_debug("%s: enter\n", __func__);
 
@@ -1146,6 +1146,11 @@ static void wcd_correct_swch_plug(struct work_struct *work)
 
 	wcd_enable_curr_micbias(mbhc, WCD_MBHC_EN_MB);
 
+
+	if (mbhc->current_plug == MBHC_PLUG_TYPE_GND_MIC_SWAP) {
+		mbhc->current_plug = MBHC_PLUG_TYPE_NONE;
+		goto correct_plug_type;
+	}
 
 	/* Enable HW FSM */
 	WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_FSM_EN, 1);
@@ -1174,23 +1179,8 @@ static void wcd_correct_swch_plug(struct work_struct *work)
 			plug_type = MBHC_PLUG_TYPE_INVALID;
 	}
 
-	do {
-		cross_conn = wcd_check_cross_conn(mbhc);
-		try++;
-	} while (try < GND_MIC_SWAP_THRESHOLD);
-	/*
-	 * check for cross coneection 4 times.
-	 * conisder the result of the fourth iteration.
-	 */
-	if (cross_conn > 0) {
-		pr_debug("%s: cross con found, start polling\n",
-			 __func__);
-		plug_type = MBHC_PLUG_TYPE_GND_MIC_SWAP;
-		pr_debug("%s: Plug found, plug type is %d\n",
+	pr_debug("%s: Valid plug found, plug type is %d\n",
 			 __func__, plug_type);
-		goto correct_plug_type;
-	}
-
 	if ((plug_type == MBHC_PLUG_TYPE_HEADSET ||
 	     plug_type == MBHC_PLUG_TYPE_HEADPHONE) &&
 	    (!wcd_swch_level_remove(mbhc))) {
@@ -1208,7 +1198,8 @@ correct_plug_type:
 					mbhc->hs_detect_work_stop);
 			wcd_enable_curr_micbias(mbhc,
 						WCD_MBHC_EN_NONE);
-			if (mbhc->micbias_enable) {
+			if (mbhc->mbhc_cb->mbhc_micb_ctrl_thr_mic &&
+				mbhc->micbias_enable) {
 				mbhc->mbhc_cb->mbhc_micb_ctrl_thr_mic(
 					mbhc->codec, MIC_BIAS_2, false);
 				mbhc->micbias_enable = false;
@@ -1230,7 +1221,8 @@ correct_plug_type:
 					mbhc->hs_detect_work_stop);
 			wcd_enable_curr_micbias(mbhc,
 						WCD_MBHC_EN_NONE);
-			if (mbhc->micbias_enable) {
+			if (mbhc->mbhc_cb->mbhc_micb_ctrl_thr_mic &&
+				mbhc->micbias_enable) {
 				mbhc->mbhc_cb->mbhc_micb_ctrl_thr_mic(
 					mbhc->codec, MIC_BIAS_2, false);
 				mbhc->micbias_enable = false;
@@ -1410,7 +1402,10 @@ exit:
 static void wcd_mbhc_detect_plug_type(struct wcd_mbhc *mbhc)
 {
 	struct snd_soc_codec *codec = mbhc->codec;
+	enum wcd_mbhc_plug_type plug_type;
 	bool micbias1 = false;
+	int cross_conn;
+	int try = 0;
 
 	pr_debug("%s: enter\n", __func__);
 	WCD_MBHC_RSC_ASSERT_LOCKED(mbhc);
@@ -1430,6 +1425,21 @@ static void wcd_mbhc_detect_plug_type(struct wcd_mbhc *mbhc)
 						    MICB_ENABLE);
 	else
 		wcd_enable_curr_micbias(mbhc, WCD_MBHC_EN_MB);
+
+	do {
+		cross_conn = wcd_check_cross_conn(mbhc);
+		try++;
+	} while (try < GND_MIC_SWAP_THRESHOLD);
+
+	if (cross_conn > 0) {
+		pr_debug("%s: cross con found, start polling\n",
+			 __func__);
+		plug_type = MBHC_PLUG_TYPE_GND_MIC_SWAP;
+		if (!mbhc->current_plug)
+			mbhc->current_plug = plug_type;
+		pr_debug("%s: Plug found, plug type is %d\n",
+			 __func__, plug_type);
+	}
 
 	/* Re-initialize button press completion object */
 	reinit_completion(&mbhc->btn_press_compl);
@@ -1494,6 +1504,9 @@ static void wcd_mbhc_swch_irq_handler(struct wcd_mbhc *mbhc)
 			mbhc->mbhc_cb->enable_mb_source(codec, true);
 		mbhc->btn_press_intr = false;
 		wcd_mbhc_detect_plug_type(mbhc);
+		/* Disable external voltage source to micbias if present */
+		if (mbhc->mbhc_cb->enable_mb_source)
+			mbhc->mbhc_cb->enable_mb_source(codec, false);
 	} else if ((mbhc->current_plug != MBHC_PLUG_TYPE_NONE)
 			&& !detection_type) {
 		/* Disable external voltage source to micbias if present */
@@ -1895,19 +1908,16 @@ static irqreturn_t wcd_mbhc_btn_press_handler(int irq, void *data)
 			 __func__);
 		goto done;
 	}
-
 	if (mbhc->current_plug != MBHC_PLUG_TYPE_HEADSET) {
 		pr_debug("%s: Plug isn't headset, ignore button press\n",
 				__func__);
 		goto done;
 	}
-
 	mask = wcd_mbhc_get_button_mask(mbhc);
 	mbhc->buttons_pressed |= mask;
 	mbhc->mbhc_cb->lock_sleep(mbhc, true);
-
 	if (schedule_delayed_work(&mbhc->mbhc_btn_dwork,
-				msecs_to_jiffies(400)) == 0) {          //default is 400ms ; 
+				msecs_to_jiffies(400)) == 0) {          //default is 400ms ;
 		WARN(1, "Button pressed twice without release event\n");
 		mbhc->mbhc_cb->lock_sleep(mbhc, false);
 	}
@@ -1924,7 +1934,7 @@ static void handle_hook_btn(struct work_struct *work)
 
 	dwork = to_delayed_work(work);
 	mbhc = container_of(dwork, struct wcd_mbhc, handle_hook_btn_dwork);
-	
+
 	pr_debug("%s: starting handle_hook_btn\n",__func__);
 
 	if (mbhc->in_swch_irq_handler) {
@@ -1952,7 +1962,7 @@ static void handle_hook_btn(struct work_struct *work)
 	mbhc->buttons_pressed &= ~WCD_MBHC_JACK_BUTTON_MASK;
 
 	mbhc->is_hook_btn_dwork_in_queue = false;
-			
+
 	pr_debug("%s: ending handle_hook_btn\n",__func__);
 }
 
@@ -1963,7 +1973,7 @@ static void handle_hook_btn_dbl_click(struct work_struct *work)
 
 	dwork = to_delayed_work(work);
 	mbhc = container_of(dwork, struct wcd_mbhc, handle_hook_btn_dbl_click_dwork);
-	
+
 	pr_debug("%s: starting handle_hook_btn_dbl_click\n",__func__);
 
 	if (mbhc->in_swch_irq_handler) {
@@ -1989,7 +1999,7 @@ static void handle_hook_btn_dbl_click(struct work_struct *work)
 	}
 
 	mbhc->buttons_pressed &= ~WCD_MBHC_JACK_BUTTON_MASK;
-			
+
 	pr_debug("%s: handle_hook_btn_dbl_click\n",__func__);
 }
 
@@ -2022,9 +2032,6 @@ static irqreturn_t wcd_mbhc_release_handler(int irq, void *data)
 		goto exit;
 
 	}
-
-	
-	
 	if (mbhc->buttons_pressed & WCD_MBHC_JACK_BUTTON_MASK) {
 		ret = wcd_cancel_btn_work(mbhc);
 		if (ret == 0) {                            //true if @dwork was pending, %false otherwise.

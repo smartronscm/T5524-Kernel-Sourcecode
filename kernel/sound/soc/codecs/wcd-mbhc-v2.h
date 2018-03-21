@@ -376,7 +376,7 @@ struct wcd_mbhc {
 	bool is_hook_btn_dwork_in_queue;
 	struct delayed_work  handle_hook_btn_dbl_click_dwork;
 	//above add by chunhui.liu to solve quick double click hook button only report one time
-	
+
 	/* Delayed work to report long button press */
 	struct delayed_work mbhc_btn_dwork;
 	int buttons_pressed;

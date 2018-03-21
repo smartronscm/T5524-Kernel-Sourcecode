@@ -204,6 +204,9 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
 	u8 *data;
 	bool pfmemalloc;
 
+	if (IS_ENABLED(CONFIG_FORCE_SKB_ALLOC_FROM_DMA_ZONE))
+		gfp_mask |= GFP_DMA;
+
 	cache = (flags & SKB_ALLOC_FCLONE)
 		? skbuff_fclone_cache : skbuff_head_cache;
 
@@ -743,6 +746,10 @@ static struct sk_buff *__skb_clone(struct sk_buff *n, struct sk_buff *skb)
 
 	atomic_inc(&(skb_shinfo(skb)->dataref));
 	skb->cloned = 1;
+
+#ifdef CONFIG_IPV6_NDISC_NODETYPE
+	C(ndisc_nodetype);
+#endif
 
 	return n;
 #undef C

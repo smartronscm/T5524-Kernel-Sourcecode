@@ -318,7 +318,7 @@ static int create_ptn5150_debugfs_entries(struct ptn5150_usb_type_c *chip)
 		pr_err( "Couldn't create ptn5150 debug dir\n");
       if (chip->debug_root) {
 
-	  	struct dentry *ent;
+		struct dentry *ent;
 		ent = debugfs_create_x32("address", S_IFREG | S_IWUSR | S_IRUGO,
 					  chip->debug_root,
 					  &(chip->peek_poke_address));
@@ -425,7 +425,7 @@ static unsigned char  ptn5150_select_usbPort(struct ptn5150_usb_type_c *chip, un
 {
       //	int ret = 0;
 	unsigned char level = (polarity & 0x02)>>1;//polarity=Reg[4] & 0x03 CC 的值CC1=1 CC2=2level=0为CC2,穃u017d之为CC1，
- 	pr_debug("Set select_gpio(%d) = %d, polarity(%d).\n", chip->dir_sel_gpio, level, polarity);
+	pr_debug("Set select_gpio(%d) = %d, polarity(%d).\n", chip->dir_sel_gpio, level, polarity);
 	if (chip->dir_sel_gpio) {
 		 gpio_direction_output(chip->dir_sel_gpio, level);
 		pr_debug("REG[0x04] = 0x%02x select_gpio= 0x%02x.\n", polarity,level);
@@ -669,4 +669,3 @@ module_i2c_driver(piusb_driver);
 
 MODULE_DESCRIPTION("NXP PTN5150 TypeC Detection driver");
 MODULE_LICENSE("GPL v2");
-

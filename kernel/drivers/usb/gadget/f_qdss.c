@@ -463,10 +463,14 @@ static void qdss_unbind(struct usb_configuration *c, struct usb_function *f)
 	pr_debug("qdss_unbind\n");
 
 	flush_workqueue(qdss->wq);
+	if (qdss_ports[qdss->port_num].data_xport ==
+			USB_GADGET_XPORT_BAM2BAM_IPA)
+		ipa_data_flush_workqueue();
 
 	if (gadget_is_dwc3(gadget))
 		dwc3_tx_fifo_resize_request(qdss->port.data, false);
 
+	c->cdev->gadget->bam2bam_func_enabled = false;
 	clear_eps(f);
 	clear_desc(gadget, f);
 }
@@ -674,7 +678,7 @@ static void usb_qdss_connect_work(struct work_struct *work)
 	dxport = qdss_ports[qdss->port_num].data_xport;
 	ctrl_xport = qdss_ports[qdss->port_num].ctrl_xport;
 	port_num = qdss_ports[qdss->port_num].data_xport_num;
-	pr_debug("%s: data xport: %s dev: %p portno: %d\n",
+	pr_debug("%s: data xport: %s dev: %pK portno: %d\n",
 			__func__, xport_to_str(dxport),
 			qdss, qdss->port_num);
 	if (qdss->port_num >= nr_qdss_ports) {
@@ -779,7 +783,7 @@ static int qdss_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 
 	dxport = qdss_ports[qdss->port_num].data_xport;
 
-	pr_debug("qdss_set_alt qdss pointer = %p\n", qdss);
+	pr_debug("qdss_set_alt qdss pointer = %pK\n", qdss);
 
 	qdss->gadget = gadget;
 
@@ -967,6 +971,11 @@ static int qdss_bind_config(struct usb_configuration *c, unsigned char portno)
 		ch->priv_usb = NULL;
 		kfree(qdss);
 	}
+	if (qdss_ports[qdss->port_num].data_xport ==
+			USB_GADGET_XPORT_BAM2BAM_IPA ||
+			qdss_ports[qdss->port_num].data_xport ==
+			USB_GADGET_XPORT_BAM)
+		c->cdev->gadget->bam2bam_func_enabled = true;
 
 	return status;
 }

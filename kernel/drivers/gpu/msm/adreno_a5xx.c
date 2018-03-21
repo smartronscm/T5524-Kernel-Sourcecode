@@ -1053,8 +1053,8 @@ static void _load_regfile(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = &adreno_dev->dev;
 	const struct firmware *fw;
-	uint32_t block_size = 0, block_total = 0, fw_size;
-	uint32_t *block;
+	uint64_t block_size = 0, block_total = 0;
+	uint32_t fw_size, *block;
 	int ret = -EINVAL;
 
 	ret = request_firmware(&fw, adreno_dev->gpucore->regfw_name,
@@ -1073,7 +1073,8 @@ static void _load_regfile(struct adreno_device *adreno_dev)
 	/* All offset numbers calculated from file description */
 	while (block_total < fw_size) {
 		block_size = block[0];
-		if (block_size >= fw_size || block_size < 2)
+		if (((block_total + block_size) >= fw_size)
+				|| block_size < 5)
 			goto err;
 		if (block[1] != GPMU_SEQUENCE_ID)
 			goto err;
@@ -1088,6 +1089,9 @@ static void _load_regfile(struct adreno_device *adreno_dev)
 				goto err;
 
 			adreno_dev->lm_fw = fw;
+
+			if (block[2] > (block_size - 2))
+				goto err;
 			adreno_dev->lm_sequence = block + block[2] + 3;
 			adreno_dev->lm_size = block_size - block[2] - 2;
 		}
@@ -1100,7 +1104,7 @@ static void _load_regfile(struct adreno_device *adreno_dev)
 err:
 	release_firmware(fw);
 	KGSL_PWR_ERR(device,
-		"Register file failed to load sz=%d bsz=%d header=%d\n",
+		"Register file failed to load sz=%d bsz=%llu header=%d\n",
 		fw_size, block_size, ret);
 	return;
 }
@@ -1358,7 +1362,7 @@ static void a5xx_start(struct adreno_device *adreno_dev)
 		gpudev->irq->mask |= (1 << A5XX_INT_MISC_HANG_DETECT);
 		/*
 		 * Set hang detection threshold to 4 million cycles
-		 * (0xFFFF*16)
+		 * (0x3FFFF*16)
 		 */
 		kgsl_regwrite(device, A5XX_RBBM_INTERFACE_HANG_INT_CNTL,
 					  (1 << 30) | 0x3FFFF);
@@ -1437,6 +1441,22 @@ static void a5xx_start(struct adreno_device *adreno_dev)
 
 	/* Set the USE_RETENTION_FLOPS chicken bit */
 	kgsl_regwrite(device, A5XX_CP_CHICKEN_DBG, 0x02000000);
+
+	/*
+	 *  In A5x, CCU can send context_done event of a particular context to
+	 *  UCHE which ultimately reaches CP even when there is valid
+	 *  transaction of that context inside CCU. This can let CP to program
+	 *  config registers, which will make the "valid transaction" inside
+	 *  CCU to be interpreted differently. This can cause gpu fault. This
+	 *  bug is fixed in latest A510 revision. To enable this bug fix -
+	 *  bit[11] of RB_DBG_ECO_CNTL need to be set to 0, default is 1
+	 *  (disable). For older A510 version this bit is unused.
+	 */
+	if (adreno_is_a510(adreno_dev)) {
+		kgsl_regread(device, A5XX_RB_DBG_ECO_CNTL, &val);
+		val = (val & (~(1 << 11)));
+		kgsl_regwrite(device, A5XX_RB_DBG_ECO_CNTL, val);
+	}
 
 	/* Enable ISDB mode if requested */
 	if (test_bit(ADRENO_DEVICE_ISDB_ENABLED, &adreno_dev->priv)) {

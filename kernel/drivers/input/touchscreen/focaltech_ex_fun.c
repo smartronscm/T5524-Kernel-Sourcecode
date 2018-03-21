@@ -171,7 +171,7 @@ void focaltech_get_upgrade_array(struct i2c_client *client)
         u32 i;
 
         i2c_smbus_read_i2c_block_data(client,FT_REG_CHIP_ID,1,&chip_id);
-        chip_id = 0x14;  
+        chip_id = 0x14;
         for(i=0;i<sizeof(fts_updateinfo)/sizeof(struct Upgrade_Info);i++)
         {
                 if(chip_id==fts_updateinfo[i].CHIP_ID)
@@ -254,30 +254,30 @@ int fts_ctpm_fw_upgrade_with_i_file(struct i2c_client *client)
 	if (vendor_id == 0)
         {
                 vendor_id = vendor_id_for_tp;
-                
-                } 
-        if(vendor_id == 0x80) {
-//        	CTPM_FW = CTPM_FW_yeji;
+
+                }
+	if(vendor_id == 0x80) {
+//		CTPM_FW = CTPM_FW_yeji;
 //		fw_len = sizeof(CTPM_FW_yeji);
 		}
-	 else if (vendor_id == 0xa0) {
+	else if (vendor_id == 0xa0) {
 //		CTPM_FW = CTPM_FW_shenyue;
 //		fw_len = sizeof(CTPM_FW_shenyue);
 		}
-	 else if (vendor_id ==0x5f){
-//	 	CTPM_FW = CTPM_FW_shunyu;
+	else if (vendor_id ==0x5f){
+//		CTPM_FW = CTPM_FW_shunyu;
 //		fw_len = sizeof(CTPM_FW_shunyu);
 		}
 	else if (vendor_id ==0x6D ){
-//	 	CTPM_FW = CTPM_FW_lansi;
+//		CTPM_FW = CTPM_FW_lansi;
 //		fw_len = sizeof(CTPM_FW_lansi);
 		}
 	else if (vendor_id == 0x5A) {//xinli TP
 		CTPM_FW = CTPM_FW_xinli;
 		fw_len = sizeof(CTPM_FW_xinli);
 		}
-	 else {//new tp
-	 	//CTPM_FW = CTPM_FW_lansi;
+	else {//new tp
+		//CTPM_FW = CTPM_FW_lansi;
 		//fw_len = sizeof(CTPM_FW_lansi);
 		printk("xxxxxxxxxxxxFAIL.... this is a new tp");
 		return -1;
@@ -428,7 +428,7 @@ u8 fts_ctpm_get_i_file_ver(void)
 		printk("xxxxxxxxxxxxxinli tp\n");
 		}
 	 else {//new tp
-	 	//CTPM_FW = CTPM_FW_yeji;
+		//CTPM_FW = CTPM_FW_yeji;
 		//ui_sz = sizeof(CTPM_FW_yeji);
 		printk("xxxxxxxxxxxxFAIL.... this is a new tp");
 		return 0x00;
@@ -1160,7 +1160,7 @@ static int ft5x0x_debug_write(struct file *filp,
         int writelen = 0;
         int ret = 0;
         struct i2c_client *client = (struct i2c_client *)ft5x0x_proc_entry->data;
-        
+
         if (copy_from_user(&writebuf, buff, buflen)) {
                 dev_err(&client->dev, "%s:copy from user error\n", __func__);
                 return -EFAULT;
@@ -1227,7 +1227,7 @@ static int ft5x0x_debug_read( char *page, char **start,
         int readlen = 0;
         u8 regvalue = 0x00, regaddr = 0x00;
         struct i2c_client *client = (struct i2c_client *)ft5x0x_proc_entry->data;
-        
+
         switch (proc_operate_mode) {
         case PROC_UPGRADE:
                 /*after calling ft5x0x_debug_write to upgrade*/

@@ -263,9 +263,7 @@
  * @NL80211_CMD_GET_SCAN: get scan results
  * @NL80211_CMD_TRIGGER_SCAN: trigger a new scan with the given parameters
  *	%NL80211_ATTR_TX_NO_CCK_RATE is used to decide whether to send the
- *	probe requests at CCK rate or not. %NL80211_ATTR_MAC can be used to
- *	specify a BSSID to scan for; if not included, the wildcard BSSID will
- *	be used.
+ *	probe requests at CCK rate or not.
  * @NL80211_CMD_NEW_SCAN_RESULTS: scan notification (as a reply to
  *	NL80211_CMD_GET_SCAN and on the "scan" multicast group)
  * @NL80211_CMD_SCAN_ABORTED: scan was aborted, for unspecified reasons,
@@ -690,10 +688,6 @@
  *	QoS mapping is relevant for IP packets, it is only valid during an
  *	association. This is cleared on disassociation and AP restart.
  *
- * @NL80211_CMD_ABORT_SCAN: Stop an ongoing scan. Returns -ENOENT if a scan is
- *	not running. The driver indicates the status of the scan through
- *	cfg80211_scan_done().
- *
  * @NL80211_CMD_MAX: highest used command number
  * @__NL80211_CMD_AFTER_LAST: internal use
  */
@@ -864,8 +858,6 @@ enum nl80211_commands {
 	NL80211_CMD_VENDOR,
 
 	NL80211_CMD_SET_QOS_MAP,
-
-	NL80211_CMD_ABORT_SCAN,
 
 	/* add new commands above here */
 
@@ -1547,6 +1539,13 @@ enum nl80211_commands {
  * @NL80211_ATTR_TDLS_PEER_CAPABILITY: flags for TDLS peer capabilities, u32.
  *	As specified in the &enum nl80211_tdls_peer_capability.
  *
+ * @NL80211_ATTR_IFACE_SOCKET_OWNER: flag attribute, if set during interface
+ *	creation then the new interface will be owned by the netlink socket
+ *	that created it and will be destroyed when the socket is closed.
+ *	If set during scheduled scan start then the new scan req will be
+ *	owned by the netlink socket that created it and the scheduled scan will
+ *	be stopped when the socket is closed.
+ *
  * @NL80211_ATTR_MAX: highest attribute number currently defined
  * @__NL80211_ATTR_AFTER_LAST: internal use
  */
@@ -1882,6 +1881,8 @@ enum nl80211_attrs {
 	NL80211_ATTR_MAX_AP_ASSOC_STA,
 
 	NL80211_ATTR_TDLS_PEER_CAPABILITY,
+
+	NL80211_ATTR_IFACE_SOCKET_OWNER,
 
 	/* add attributes here, update the policy in nl80211.c */
 

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -225,7 +225,7 @@ enum hal_property {
 	HAL_PARAM_VENC_MBI_STATISTICS_MODE,
 	HAL_PARAM_VENC_BITRATE_TYPE,
 	HAL_PARAM_VENC_VIDEO_SIGNAL_INFO,
-	HAL_PARAM_VENC_CONSTRAINED_INTRA_PRED,
+	HAL_PARAM_VENC_IFRAMESIZE_TYPE,
 };
 
 enum hal_domain {
@@ -972,6 +972,13 @@ struct hal_video_signal_info {
 	bool full_range;
 };
 
+enum hal_iframesize_type {
+	HAL_IFRAMESIZE_TYPE_DEFAULT,
+	HAL_IFRAMESIZE_TYPE_MEDIUM,
+	HAL_IFRAMESIZE_TYPE_HUGE,
+	HAL_IFRAMESIZE_TYPE_UNLIMITED,
+};
+
 enum vidc_resource_id {
 	VIDC_RESOURCE_OCMEM = 0x00000001,
 	VIDC_UNUSED_RESORUCE = 0x10000000,
@@ -1321,6 +1328,10 @@ struct vidc_hal_sys_init_done {
 
 struct vidc_hal_session_init_done {
 	struct msm_vidc_capability capability;
+};
+
+struct vidc_hal_session_flush_done {
+	enum hal_flush flush_type;
 };
 
 enum msm_vidc_hfi_type {

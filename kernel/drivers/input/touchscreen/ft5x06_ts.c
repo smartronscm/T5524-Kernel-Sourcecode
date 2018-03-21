@@ -59,7 +59,7 @@
 #define FT_TOUCH_X_L_POS	4
 #define FT_TOUCH_Y_H_POS	5
 #define FT_TOUCH_Y_L_POS	6
-#define FT_TOUCH_PRESS_POS      7   
+#define FT_TOUCH_PRESS_POS      7
 #define FT_TD_STATUS		2
 #define FT_TOUCH_EVENT_POS	3
 #define FT_TOUCH_ID_POS		5
@@ -162,6 +162,7 @@
 #define FT_MAGIC_BLOADER_GZF_30	0x7ff4
 #define FT_MAGIC_BLOADER_GZF	0x7bf4
 
+//#define FTS_CHARGER_EN 		1
 enum {
 	FT_BLOADER_VERSION_LZ4 = 0,
 	FT_BLOADER_VERSION_Z7 = 1,
@@ -201,8 +202,10 @@ struct ft5x06_ts_data {
         //struct ts_event event;
         struct work_struct   pen_event_work;
         struct work_struct   tp_reset_work;
+#ifndef FTS_CHARGER_EN
         struct work_struct   usb_in_work;
-	 int tp_id; 
+#endif
+	 int tp_id;
         int read_error;
         struct workqueue_struct *ts_workqueue;
         struct delayed_work     delay_resume_work;
@@ -211,7 +214,9 @@ struct ft5x06_ts_data {
 	struct regulator *vcc_i2c;
 	char fw_name[FT_FW_NAME_MAX_LEN];
 	bool loading_fw;
+#ifndef FTS_CHARGER_EN
         int usb_in;
+#endif
 	u8 family_id;
 	struct dentry *dir;
 	u16 addr;
@@ -386,6 +391,7 @@ static void ft5x0x_ts_reset_work (struct work_struct *work)
         data->read_error = 0;
         enable_irq(this_client->irq);
 }
+#ifndef FTS_CHARGER_EN
 static void ft5x0x_usb_in_work (struct work_struct *work)
 {
         struct ft5x06_ts_data *data = i2c_get_clientdata(this_client);
@@ -395,13 +401,15 @@ static void ft5x0x_usb_in_work (struct work_struct *work)
                         ft5x0x_write_reg(this_client,0x8b,1);
 			    printk("ft5x06 into usb_mode\n");
 				}
-                else 
+                else
                 {
                         ft5x0x_write_reg(this_client,0x8b,0);
 			    printk("ft5x06 outof usb_mode\n");
                 }
         }
 }
+#endif
+
 static void ft5x0x_ts_pen_irq_work(struct work_struct *work)
 {
        struct ft5x06_ts_data *data = container_of(work, struct ft5x06_ts_data, pen_event_work);
@@ -501,7 +509,7 @@ static void ft5x0x_ts_pen_irq_work(struct work_struct *work)
 	for(i = 0; i < data->pdata->tsp_key_num; i++)
 	{
 		if ((data->pdata->tsp_key[i].key_status == FT_KEY_PRESS)&&(data->pdata->tsp_key[i].update_status == 0)){
-			
+
                           input_report_key(data->input_dev, data->pdata->tsp_key[i].key_code, 0);
 			      data->pdata->tsp_key[i].key_status = FT_KEY_RELEASE;
 			      printk ("lose a  key  %d\n",data->pdata->tsp_key[i].key_code);
@@ -512,7 +520,7 @@ static void ft5x0x_ts_pen_irq_work(struct work_struct *work)
 	if (update_input) {
 		input_mt_report_pointer_emulation(data->input_dev, false);
 		input_sync(ip_dev);
-	
+
 	}
 
 }
@@ -526,7 +534,9 @@ static irqreturn_t ft5x06_ts_interrupt(int irq, void *dev_id)
         return IRQ_HANDLED;
 }
 
+#ifndef FTS_CHARGER_EN
 extern bool get_usb_present_for_tp(void);
+#endif
 static void ft5x0x_ts_delay_resume_work(struct work_struct *work)
 {
         struct ft5x06_ts_data *data = container_of((struct delayed_work *)work, struct ft5x06_ts_data, delay_resume_work);
@@ -540,9 +550,12 @@ static void ft5x0x_ts_delay_resume_work(struct work_struct *work)
 	data->suspended = false;
     suspend_state = 0;
 
+#ifndef FTS_CHARGER_EN
         data->usb_in = get_usb_present_for_tp();
         schedule_work(&data->usb_in_work);
+#endif
 }
+
 static int ft5x06_power_on(struct ft5x06_ts_data *data, bool on)
 {
 	int rc;
@@ -667,8 +680,9 @@ pwr_deinit:
 	regulator_put(data->vcc_i2c);
 	return 0;
 }
-extern int ft5x06_init;
 extern struct power_supply *power_supply_get_by_name(const char *name);
+#ifndef FTS_CHARGER_EN
+extern int ft5x06_init;
 int ft5x06_ts_avoid_usb_noise (int usb_in)
 {
         struct ft5x06_ts_data *ts_data = i2c_get_clientdata(this_client);
@@ -677,7 +691,7 @@ int ft5x06_ts_avoid_usb_noise (int usb_in)
               if (ts_data->suspended){
                         ts_data->usb_in = 1;
                         }
-                        else 
+                        else
                              {
                                  ts_data->usb_in = 1;
                                  schedule_work (&ts_data->usb_in_work);
@@ -691,9 +705,10 @@ int ft5x06_ts_avoid_usb_noise (int usb_in)
                         schedule_work (&ts_data->usb_in_work);
                }
         }
-                     
+
         return 0;
 }
+#endif
 
 #ifdef CONFIG_PM
 static int ft5x06_ts_suspend(struct device *dev)
@@ -1402,6 +1417,84 @@ static int ft5x06_debug_suspend_get(void *_data, u64 *val)
 DEFINE_SIMPLE_ATTRIBUTE(debug_suspend_fops, ft5x06_debug_suspend_get,
 			ft5x06_debug_suspend_set, "%lld\n");
 
+
+#ifdef FTS_CHARGER_EN
+
+#define FTS_SYSFS_ECHO_ON(buf)      ((strnicmp(buf, "1", 1)  == 0) || \
+                                        (strnicmp(buf, "On", 2) == 0))
+#define FTS_SYSFS_ECHO_OFF(buf)     ((strnicmp(buf, "0", 1)  == 0) || \
+                                        (strnicmp(buf, "Off", 3) == 0))
+
+#define FTS_REG_CHARGER_MODE_EN 0x8B
+int fts_charger_mode_flag = false;
+
+/************************************************************************
+* Name: fts_enter_charger_mode
+* Brief:  change charger mode
+* Input:  charger mode
+* Output: no
+* Return: success >=0, otherwise failed
+***********************************************************************/
+int  fts_enter_charger_mode(struct i2c_client *client, int mode)
+{
+    int ret = 0;
+
+    ret = ft5x0x_write_reg( client, FTS_REG_CHARGER_MODE_EN, (mode ? 0x1 : 0x0));
+    if (ret<0)
+    {
+        dev_err(&client->dev, "fts_enter_charger_mode write value fail");
+    }
+
+    return ret ;
+
+}
+
+static ssize_t fts_touch_charger_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+    return snprintf(buf, PAGE_SIZE, "Charger: %s\n", fts_charger_mode_flag ? "On" : "Off");
+}
+
+static ssize_t fts_touch_charger_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
+{
+    int ret;
+
+    if (FTS_SYSFS_ECHO_ON(buf))
+    {
+        if (!fts_charger_mode_flag)
+        {
+            dev_info(dev, "enter charger mode");
+            ret = fts_enter_charger_mode(this_client, true);
+            if (ret >= 0)
+            {
+                fts_charger_mode_flag = true;
+            }
+        }
+    }
+    else if (FTS_SYSFS_ECHO_OFF(buf))
+    {
+        if (fts_charger_mode_flag)
+        {
+            dev_info(dev, "exit charger mode");
+            ret = fts_enter_charger_mode(this_client, false);
+            if (ret >= 0)
+            {
+                fts_charger_mode_flag = false;
+            }
+        }
+    }
+    dev_info(dev, "charger mode status: %d", fts_charger_mode_flag);
+    return count;
+}
+
+/* read and write charger mode
+*   read example: cat  fts_touch_charger_mode---read  charger mode
+*   write example:echo 01 > fts_touch_charger_mode ---write charger mode to 01
+*
+*/
+static DEVICE_ATTR(fts_charger_mode, 0664, fts_touch_charger_show, fts_touch_charger_store);
+
+#endif
+
 static int ft5x06_debug_dump_info(struct seq_file *m, void *v)
 {
 	struct ft5x06_ts_data *data = m->private;
@@ -1841,8 +1934,10 @@ static int ft5x06_ts_probe(struct i2c_client *client,
 
         INIT_WORK(&data->pen_event_work, ft5x0x_ts_pen_irq_work);
         INIT_WORK(&data->tp_reset_work,ft5x0x_ts_reset_work);
+#ifndef FTS_CHARGER_EN
         INIT_WORK(&data->usb_in_work,ft5x0x_usb_in_work);
-		INIT_DELAYED_WORK(&data->delay_resume_work, ft5x0x_ts_delay_resume_work);
+#endif
+	INIT_DELAYED_WORK(&data->delay_resume_work, ft5x0x_ts_delay_resume_work);
 	data->ts_workqueue = create_singlethread_workqueue(dev_name(&client->dev));
 	/* check the controller id */
 	reg_addr = FT_REG_ID;
@@ -1866,7 +1961,7 @@ static int ft5x06_ts_probe(struct i2c_client *client,
 		goto free_reset_gpio;
 	}
 	printk ("xxxxxxxxxxxxx %d\n",reg_value);
-	
+
 	if (reg_value ==0x80 )//[0] = "Yeji",
 	      {data->tp_id = 0;
 	printk("xxxxxxxxxxxx this is Yeji TP\n");}
@@ -1877,13 +1972,13 @@ static int ft5x06_ts_probe(struct i2c_client *client,
 		{data->tp_id = 2;
 	printk("xxxxxxxxxxxx this is Shunyu tp\n");}
 	else if(reg_value == 0x6D)//[3] ="Lansi",
-		{data->tp_id = 3; 
+		{data->tp_id = 3;
 	printk("xxxxxxxxxxxx this is Lansi tp\n");}
 	else if(reg_value == 0x5A)//[4] ="Xinli",
-		{data->tp_id = 4; 
+		{data->tp_id = 4;
 	printk("xxxxxxxxxxxx this is Xinli tp\n");}
 	else{//new tp
-		data->tp_id = 5; 
+		data->tp_id = 5;
 		printk("xxxxxxxxxxxx this is a new tp\n");}
         fts_ctpm_auto_upgrade(client);
 	err = request_threaded_irq(client->irq, NULL,
@@ -1918,7 +2013,13 @@ static int ft5x06_ts_probe(struct i2c_client *client,
 		dev_err(&client->dev, "sys file creation failed\n");
 		goto free_update_fw_sys;
 	}
-
+#ifdef FTS_CHARGER_EN
+	err = device_create_file(&client->dev, &dev_attr_fts_charger_mode);
+	if (err) {
+		dev_err(&client->dev, "sys file creation failed\n");
+		goto free_fts_charger_mode;
+	}
+#endif
 	data->dir = debugfs_create_dir(FT_DEBUG_DIR_NAME, NULL);
 	if (data->dir == NULL || IS_ERR(data->dir)) {
 		pr_err("debugfs_create_dir failed(%ld)\n", PTR_ERR(data->dir));
@@ -2016,18 +2117,22 @@ static int ft5x06_ts_probe(struct i2c_client *client,
 	data->early_suspend.resume = ft5x06_ts_late_resume;
 	register_early_suspend(&data->early_suspend);
 #endif
+#ifndef FTS_CHARGER_EN
         ft5x06_init = 1;
-#if 1
         if(get_usb_present_for_tp())
         {
                 data->usb_in = 1;
                 schedule_work(&data->usb_in_work);
         }
-#endif 
+#endif
 	return 0;
 
 free_debug_dir:
 	debugfs_remove_recursive(data->dir);
+#ifdef FTS_CHARGER_EN   
+free_fts_charger_mode:
+	device_remove_file(&client->dev, &dev_attr_fts_charger_mode);
+#endif
 free_force_update_fw_sys:
 	device_remove_file(&client->dev, &dev_attr_force_update_fw);
 free_update_fw_sys:
@@ -2065,6 +2170,9 @@ static int ft5x06_ts_remove(struct i2c_client *client)
 	struct ft5x06_ts_data *data = i2c_get_clientdata(client);
 
 	debugfs_remove_recursive(data->dir);
+#ifdef FTS_CHARGER_EN
+	device_remove_file(&client->dev, &dev_attr_fts_charger_mode);
+#endif
 	device_remove_file(&client->dev, &dev_attr_force_update_fw);
 	device_remove_file(&client->dev, &dev_attr_update_fw);
 	device_remove_file(&client->dev, &dev_attr_fw_name);

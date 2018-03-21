@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -230,8 +230,11 @@ kgsl_mem_entry_create(void)
 {
 	struct kgsl_mem_entry *entry = kzalloc(sizeof(*entry), GFP_KERNEL);
 
-	if (entry)
+	if (entry) {
 		kref_init(&entry->refcount);
+		/* put this ref in the caller functions after init */
+		kref_get(&entry->refcount);
+	}
 
 	return entry;
 }
@@ -1808,9 +1811,9 @@ long kgsl_ioctl_drawctxt_create(struct kgsl_device_private *dev_priv,
 	/* Commit the pointer to the context in context_idr */
 	write_lock(&device->context_lock);
 	idr_replace(&device->context_idr, context, context->id);
+	param->drawctxt_id = context->id;
 	write_unlock(&device->context_lock);
 
-	param->drawctxt_id = context->id;
 done:
 	return result;
 }
@@ -2234,21 +2237,23 @@ static int kgsl_setup_dmabuf_useraddr(struct kgsl_device *device,
 		if (fd != 0)
 			dmabuf = dma_buf_get(fd - 1);
 	}
-	up_read(&current->mm->mmap_sem);
 
-	if (dmabuf == NULL)
-		return -ENODEV;
+	if (IS_ERR_OR_NULL(dmabuf)) {
+		up_read(&current->mm->mmap_sem);
+		return dmabuf ? PTR_ERR(dmabuf) : -ENODEV;
+	}
 
 	ret = kgsl_setup_dma_buf(device, pagetable, entry, dmabuf);
 	if (ret) {
 		dma_buf_put(dmabuf);
+		up_read(&current->mm->mmap_sem);
 		return ret;
 	}
 
 	/* Setup the user addr/cache mode for cache operations */
 	entry->memdesc.useraddr = hostptr;
 	_setup_cache_mode(entry, vma);
-
+	up_read(&current->mm->mmap_sem);
 	return 0;
 }
 #else
@@ -2285,7 +2290,7 @@ static long _gpuobj_map_useraddr(struct kgsl_device *device,
 		struct kgsl_mem_entry *entry,
 		struct kgsl_gpuobj_import *param)
 {
-	struct kgsl_gpuobj_import_useraddr useraddr;
+	struct kgsl_gpuobj_import_useraddr useraddr = {0};
 	int ret;
 
 	param->flags &= KGSL_MEMFLAGS_GPUREADONLY
@@ -2421,6 +2426,9 @@ long kgsl_ioctl_gpuobj_import(struct kgsl_device_private *dev_priv,
 	trace_kgsl_mem_map(entry, fd);
 
 	kgsl_mem_entry_commit_process(private, entry);
+
+	/* put the extra refcount for kgsl_mem_entry_create() */
+	kgsl_mem_entry_put(entry);
 	return 0;
 
 unmap:
@@ -2523,6 +2531,8 @@ static int kgsl_setup_dma_buf(struct kgsl_device *device,
 	meta->dmabuf = dmabuf;
 	meta->attach = attach;
 
+	attach->priv = entry;
+
 	entry->priv_data = meta;
 	entry->memdesc.pagetable = pagetable;
 	entry->memdesc.size = 0;
@@ -2572,6 +2582,45 @@ out:
 	}
 
 	return ret;
+}
+#endif
+
+#ifdef CONFIG_DMA_SHARED_BUFFER
+void kgsl_get_egl_counts(struct kgsl_mem_entry *entry,
+		int *egl_surface_count, int *egl_image_count)
+{
+	struct kgsl_dma_buf_meta *meta = entry->priv_data;
+	struct dma_buf *dmabuf = meta->dmabuf;
+	struct dma_buf_attachment *mem_entry_buf_attachment = meta->attach;
+	struct device *buf_attachment_dev = mem_entry_buf_attachment->dev;
+	struct dma_buf_attachment *attachment = NULL;
+
+	mutex_lock(&dmabuf->lock);
+	list_for_each_entry(attachment, &dmabuf->attachments, node) {
+		struct kgsl_mem_entry *scan_mem_entry = NULL;
+
+		if (attachment->dev != buf_attachment_dev)
+			continue;
+
+		scan_mem_entry = attachment->priv;
+		if (!scan_mem_entry)
+			continue;
+
+		switch (kgsl_memdesc_get_memtype(&scan_mem_entry->memdesc)) {
+		case KGSL_MEMTYPE_EGL_SURFACE:
+			(*egl_surface_count)++;
+			break;
+		case KGSL_MEMTYPE_EGL_IMAGE:
+			(*egl_image_count)++;
+			break;
+		}
+	}
+	mutex_unlock(&dmabuf->lock);
+}
+#else
+void kgsl_get_egl_counts(struct kgsl_mem_entry *entry,
+		int *egl_surface_count, int *egl_image_count)
+{
 }
 #endif
 
@@ -2693,6 +2742,9 @@ long kgsl_ioctl_map_user_mem(struct kgsl_device_private *dev_priv,
 	trace_kgsl_mem_map(entry, param->fd);
 
 	kgsl_mem_entry_commit_process(private, entry);
+
+	/* put the extra refcount for kgsl_mem_entry_create() */
+	kgsl_mem_entry_put(entry);
 	return result;
 
 error_attach:
@@ -3133,6 +3185,9 @@ long kgsl_ioctl_gpuobj_alloc(struct kgsl_device_private *dev_priv,
 	param->mmapsize = kgsl_memdesc_mmapsize(&entry->memdesc);
 	param->id = entry->id;
 
+	/* put the extra refcount for kgsl_mem_entry_create() */
+	kgsl_mem_entry_put(entry);
+
 	return 0;
 }
 
@@ -3156,6 +3211,8 @@ long kgsl_ioctl_gpumem_alloc(struct kgsl_device_private *dev_priv,
 	param->size = (size_t) entry->memdesc.size;
 	param->flags = (unsigned int) entry->memdesc.flags;
 
+	/* put the extra refcount for kgsl_mem_entry_create() */
+	kgsl_mem_entry_put(entry);
 	return 0;
 }
 
@@ -3179,6 +3236,8 @@ long kgsl_ioctl_gpumem_alloc_id(struct kgsl_device_private *dev_priv,
 		kgsl_memdesc_mmapsize(&entry->memdesc);
 	param->gpuaddr = (unsigned long) entry->memdesc.gpuaddr;
 
+	/* put the extra refcount for kgsl_mem_entry_create() */
+	kgsl_mem_entry_put(entry);
 	return 0;
 }
 

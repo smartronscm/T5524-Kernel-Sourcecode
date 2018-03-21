@@ -1708,14 +1708,6 @@ static int bcl_probe(struct platform_device *pdev)
 	else
 		bcl_hotplug_enabled = true;
 
-	if (bcl_hotplug_enabled) {
-		ret = create_bcl_sysfs(bcl);
-		if (ret < 0) {
-			pr_err("Cannot create bcl sysfs\n");
-			return ret;
-		}
-	}
-
 	if (of_property_read_bool(pdev->dev.of_node,
 		"qcom,bcl-framework-interface"))
 		ret = probe_bcl_periph_prop(bcl);

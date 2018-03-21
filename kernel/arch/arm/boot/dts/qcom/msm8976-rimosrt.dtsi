@@ -201,12 +201,6 @@
 };
 
 &soc {
-	qcom,msm-thermal {
-		qcom,vdd-gfx-rstr {
-			/delete-property/ qcom,min-level;
-			qcom,freq-req;
-		};
-	};
 
         gen-vkeys {
                 compatible = "qcom,gen-vkeys";

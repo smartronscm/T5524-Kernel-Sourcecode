@@ -80,7 +80,7 @@ static int snd_jack_dev_register(struct snd_device *device)
 			continue;
 
 		if (!jack->key[i]){
-			if (1 != i){                   ////add by chunhui.liu to block headset remove btn press
+			if (1 != i){                   ////added by chunhui.liu to block headset remove btn press
 				jack->key[i] = BTN_0 + i;
 				}
 			}

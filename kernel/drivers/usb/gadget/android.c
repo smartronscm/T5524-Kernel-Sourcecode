@@ -309,10 +309,31 @@ static void android_pm_qos_update_latency(struct android_dev *dev, s32 latency)
 		return;
 
 	pr_debug("%s: latency updated to: %d\n", __func__, latency);
-
-	pm_qos_update_request(&dev->pm_qos_req_dma, latency);
-
-	last_vote = latency;
+	if (latency == PM_QOS_DEFAULT_VALUE) {
+		pm_qos_update_request(&dev->pm_qos_req_dma, latency);
+		last_vote = latency;
+		pm_qos_remove_request(&dev->pm_qos_req_dma);
+	} else {
+		if (!pm_qos_request_active(&dev->pm_qos_req_dma)) {
+			/*
+			 * The default request type PM_QOS_REQ_ALL_CORES is
+			 * applicable to all CPU cores that are online and
+			 * would have a power impact when there are more
+			 * number of CPUs. PM_QOS_REQ_AFFINE_IRQ request
+			 * type shall update/apply the vote only to that CPU to
+			 * which IRQ's affinity is set to.
+			 */
+#ifdef CONFIG_SMP
+			dev->pm_qos_req_dma.type = PM_QOS_REQ_AFFINE_IRQ;
+			dev->pm_qos_req_dma.irq =
+				dev->cdev->gadget->interrupt_num;
+#endif
+			pm_qos_add_request(&dev->pm_qos_req_dma,
+				PM_QOS_CPU_DMA_LATENCY, PM_QOS_DEFAULT_VALUE);
+		}
+		pm_qos_update_request(&dev->pm_qos_req_dma, latency);
+		last_vote = latency;
+	}
 }
 
 #define DOWN_PM_QOS_SAMPLE_SEC		5
@@ -475,7 +496,7 @@ static void android_work(struct work_struct *data)
 		}
 		pr_info("%s: sent uevent %s\n", __func__, uevent_envp[0]);
 	} else {
-		pr_info("%s: did not send uevent (%d %d %p)\n", __func__,
+		pr_info("%s: did not send uevent (%d %d %pK)\n", __func__,
 			 dev->connected, dev->sw_connected, cdev->config);
 	}
 }
@@ -3870,7 +3891,7 @@ static int usb_diag_update_pid_and_serial_num(u32 pid, const char *snum)
 		return -ENODEV;
 	}
 
-	pr_debug("%s: dload:%p pid:%x serial_num:%s\n",
+	pr_debug("%s: dload:%pK pid:%x serial_num:%s\n",
 				__func__, diag_dload, pid, snum);
 
 	/* update pid */
@@ -4037,21 +4058,6 @@ static int android_probe(struct platform_device *pdev)
 	/* pm qos request to prevent apps idle power collapse */
 	android_dev->curr_pm_qos_state = NO_USB_VOTE;
 	if (pdata && pdata->pm_qos_latency[0]) {
-		/*
-		 * The default request type PM_QOS_REQ_ALL_CORES is
-		 * applicable to all CPU cores that are online and
-		 * would have a power impact when there are more
-		 * number of CPUs. PM_QOS_REQ_AFFINE_IRQ request
-		 * type shall update/apply the vote only to that CPU to
-		 * which IRQ's affinity is set to.
-		 */
-#ifdef CONFIG_SMP
-		android_dev->pm_qos_req_dma.type = PM_QOS_REQ_AFFINE_IRQ;
-		android_dev->pm_qos_req_dma.irq =
-				android_dev->cdev->gadget->interrupt_num;
-#endif
-		pm_qos_add_request(&android_dev->pm_qos_req_dma,
-			PM_QOS_CPU_DMA_LATENCY, PM_QOS_DEFAULT_VALUE);
 		android_dev->down_pm_qos_sample_sec = DOWN_PM_QOS_SAMPLE_SEC;
 		android_dev->down_pm_qos_threshold = DOWN_PM_QOS_THRESHOLD;
 		android_dev->up_pm_qos_sample_sec = UP_PM_QOS_SAMPLE_SEC;

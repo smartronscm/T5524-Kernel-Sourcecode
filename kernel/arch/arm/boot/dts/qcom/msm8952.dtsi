@@ -25,6 +25,23 @@
 		bootargs = "boot_cpus=0,4,5,6,7 sched_enable_hmp=1";
 	};
 
+	firmware: firmware {
+                android {
+                        compatible = "android,firmware";
+                        fstab {
+                                compatible = "android,fstab";
+                                system {
+                                        compatible = "android,system";
+                                        dev = "/dev/block/platform/soc.0/7824900.sdhci/by-name/system";
+                                        type = "ext4";
+                                        mnt_flags = "ro,barrier=1,discard";
+                                        fsmgr_flags = "wait,verify";
+                                        status = "ok";
+                                };
+                        };
+                };
+        };
+
 	aliases {
 		sdhc1 = &sdhc_1; /* SDC1 eMMC slot */
 		sdhc2 = &sdhc_2; /* SDC2 SD card slot */
@@ -52,7 +69,7 @@
 			linux,reserve-contiguous-region;
 			linux,reserve-region;
 			linux,remove-completely;
-			reg = <0x0 0x8c200000 0x0 0x1700000>;
+			reg = <0x0 0x8c200000 0x0 0x1800000>;
 			label = "reloc_mem";
 		};
 
@@ -1079,7 +1096,6 @@
 		qcom,ignore-core-reset-ack;
 		qcom,disable-clk-gating;
 		qcom,usb-bam-max-mbps-highspeed = <400>;
-		qcom,enable-hsusb-bam-on-boot;
 
 		qcom,pipe0 {
 			label = "hsusb-ipa-out-0";
@@ -1571,6 +1587,8 @@
 		qcom,use-sw-aes-xts-algo;
 		qcom,use-sw-aes-ccm-algo;
 		qcom,use-sw-ahash-algo;
+		qcom,use-sw-hmac-algo;
+		qcom,use-sw-aead-algo;
 		qcom,ce-opp-freq = <100000000>;
 	};
 
@@ -2069,7 +2087,6 @@
 	voice: qcom,msm-pcm-voice {
 		compatible = "qcom,msm-pcm-voice";
 		qcom,destroy-cvd;
-		qcom,vote-bms;
 	};
 
 	stub_codec: qcom,msm-stub-codec {
@@ -2332,12 +2349,6 @@
 				"iface_clk", "bus_clk";
 		qcom,ce-opp-freq = <100000000>;
 	};
-
-	cpu-pmu {
-                compatible = "arm,armv8-pmuv3";
-                qcom,irq-is-percpu;
-                interrupts = <1 7 0xff00>;
-        };
 };
 
 &gdsc_venus {

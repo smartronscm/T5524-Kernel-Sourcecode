@@ -37,7 +37,7 @@ enum zpool_mapmode {
 };
 
 struct zpool *zpool_create_pool(char *type, char *name,
-			gfp_t gfp, struct zpool_ops *ops);
+                       gfp_t gfp, struct zpool_ops *ops);
 
 char *zpool_get_type(struct zpool *pool);
 

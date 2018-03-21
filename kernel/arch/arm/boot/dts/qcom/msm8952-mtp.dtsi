@@ -55,9 +55,9 @@
 };
 
 &i2c_5 { /* BLSP2 QUP1 */
-	nq@28 {
+	nq@2b {
 		compatible = "qcom,nq-nci";
-		reg = <0x28>;
+		reg = <0x2b>;
 		qcom,nq-irq = <&msm_gpio 17 0x00>;
 		qcom,nq-ven = <&msm_gpio 16 0x00>;
 		qcom,nq-firm = <&pm8950_gpios 5 0x00>;
